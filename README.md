@@ -30,6 +30,8 @@ on renewal), sign in again: open the approval link below, approve, copy the addr
     python3 authorize.py "<that address>"
 
 Approval link (client ID is in `~/.appliance-clock-sync/client.json`):
-`https://api.smartthings.com/oauth/authorize?client_id=<CLIENT_ID>&response_type=code&redirect_uri=https%3A%2F%2Ftmckague-antilles.github.io%2Fclock-sync-callback&scope=r%3Adevices%3A%2A+x%3Adevices%3A%2A+l%3Adevices`
+`https://api.smartthings.com/oauth/authorize?client_id=<CLIENT_ID>&response_type=code&redirect_uri=https%3A%2F%2Ftmckague-antilles.github.io%2Fclock-sync-callback&scope=r%3Adevices%3A%2A+x%3Adevices%3A%2A`
+
+When the approval page asks for a location, pick your home, then click Authorize.
 
 To run a sync right now: GitHub → Actions → Sync appliance clocks → Run workflow.
