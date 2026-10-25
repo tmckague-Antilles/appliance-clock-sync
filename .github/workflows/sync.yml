@@ -1,0 +1,42 @@
+name: Sync appliance clocks
+
+on:
+  schedule:
+    # Every 30 minutes, off the hour (SmartThings asks callers to avoid :00 spikes).
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clock-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set clocks
+        run: python3 sync.py
+        env:
+          ST_CLIENT_ID: ${{ secrets.ST_CLIENT_ID }}
+          ST_CLIENT_SECRET: ${{ secrets.ST_CLIENT_SECRET }}
+          ST_INITIAL_REFRESH_TOKEN: ${{ secrets.ST_INITIAL_REFRESH_TOKEN }}
+          TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
+          DEVICE_IDS: ${{ vars.DEVICE_IDS }}
+
+      # Runs even if a clock update failed, so a renewed token is never lost.
+      - name: Save renewed access
+        if: always()
+        run: |
+          git add tokens.enc 2>/dev/null || true
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Renew SmartThings access"
+          for i in 1 2 3; do git push && exit 0; sleep 5; git pull --rebase; done
+          exit 1
