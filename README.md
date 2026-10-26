@@ -2,10 +2,19 @@
 
 Resets the Samsung range and microwave clocks after power outages, with no taps.
 
-A GitHub Actions job runs every 30 minutes (at :13 and :43) and sends the current
-St. Thomas time to both appliances through SmartThings. It skips an appliance that is
-offline or cooking. After an outage the clocks are right again within about half an hour
-of the power coming back.
+A GitHub Actions job sends the current St. Thomas time to both appliances through
+SmartThings. It skips an appliance that is offline or cooking.
+
+GitHub's own schedule (:13 and :43) is best-effort and often runs only every few hours,
+so a cron-job.org job starts the workflow every 15 minutes through the GitHub API
+(`POST /repos/tmckague-Antilles/appliance-clock-sync/actions/workflows/sync.yml/dispatches`
+with body `{"ref":"main"}`), using a fine-grained GitHub token limited to this repo with
+Actions read/write. The GitHub schedule stays as a backup. After an outage the clocks
+are right again within about 15 minutes of the power coming back. The repo is public
+for unlimited free Actions minutes; nothing secret is in it.
+
+If the cron-job.org job starts failing with HTTP 401, the GitHub token expired: make a
+new one and paste it into the job's Authorization header.
 
 The time is set with an undocumented SmartThings command (the one behind the app's
 "Sync time"), so a Samsung firmware update could break it.
