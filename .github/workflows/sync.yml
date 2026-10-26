@@ -42,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Renew SmartThings access"
+          git commit -m "Update saved access and outage record"
           for i in 1 2 3; do git push && exit 0; sleep 5; git pull --rebase; done
           exit 1
