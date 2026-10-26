@@ -13,6 +13,16 @@ Actions read/write. The GitHub schedule stays as a backup. After an outage the c
 are right again within about 15 minutes of the power coming back. The repo is public
 for unlimited free Actions minutes; nothing secret is in it.
 
+## Power alerts
+
+When both appliances drop off SmartThings, the job sends a "Power out" push through
+ntfy.sh, and a "Power back" push with the outage length when they return. Times come
+from SmartThings' online/offline timestamps, so they are accurate to a few minutes even
+though the job runs every 15. One appliance going offline alone does not alert. Outages
+shorter than the gap between runs can be missed. The ntfy channel name is the
+`NTFY_TOPIC` secret (also in `~/.appliance-clock-sync/ntfy_topic`); anyone who knows it
+can read the alerts, so keep it private. The outage record lives inside `tokens.enc`.
+
 If the cron-job.org job starts failing with HTTP 401, the GitHub token expired: make a
 new one and paste it into the job's Authorization header.
 

@@ -18,7 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Latest main, not the commit at trigger time: a queued run must see the
+      # tokens.enc the previous run just pushed (refresh tokens work only once).
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set clocks
         run: python3 sync.py
@@ -28,6 +32,7 @@ jobs:
           ST_INITIAL_REFRESH_TOKEN: ${{ secrets.ST_INITIAL_REFRESH_TOKEN }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
           DEVICE_IDS: ${{ vars.DEVICE_IDS }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
 
       # Runs even if a clock update failed, so a renewed token is never lost.
       - name: Save renewed access

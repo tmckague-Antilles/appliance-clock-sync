@@ -68,6 +68,7 @@ def refresh(state):
         "Content-Type": "application/x-www-form-urlencoded",
     })
     new_state = {
+        **state,
         "access_token": tok["access_token"],
         "refresh_token": tok["refresh_token"],
         "expires_at": int(time.time()) + int(tok.get("expires_in", 86399)),
@@ -86,9 +87,57 @@ def api(token, path, method="GET", payload=None):
     })
 
 
-def sync_device(token, device_id, now):
+def notify(title, message):
+    topic = os.environ.get("NTFY_TOPIC")
+    if not topic:
+        return
+    try:
+        request(f"https://ntfy.sh/{topic}", "POST", message.encode(), {"Title": title, "Tags": "electric_plug"})
+        print(f"Sent alert: {title}")
+    except Exception as e:  # an alert failure must not stop the clock sync
+        print(f"Alert failed: {e}")
+
+
+def parse_time(stamp):
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
+
+def local(dt):
+    return dt.astimezone(ZoneInfo(TIMEZONE)).strftime("%-I:%M %p on %a %b %-d")
+
+
+def check_power(state, health):
+    """Alert on power out / back, judged by all appliances dropping off SmartThings.
+
+    Returns True if the outage record in state changed and needs saving.
+    """
+    online = [h for h in health.values() if h.get("state") == "ONLINE"]
+    changed_at = [parse_time(h["lastUpdatedDate"]) for h in health.values() if h.get("lastUpdatedDate")]
+    power = state.get("power")
+    if power is None:  # first run: just record the current picture
+        state["power"] = {"out_since": None if online else min(changed_at).isoformat()}
+        return True
+
+    if not online and not power["out_since"]:
+        since = min(changed_at) if changed_at else datetime.now(ZoneInfo("UTC"))
+        power["out_since"] = since.isoformat()
+        notify("Power out", f"Range and microwave went offline around {local(since)}.")
+        return True
+
+    if online and power["out_since"]:
+        since = datetime.fromisoformat(power["out_since"])
+        back = min(parse_time(h["lastUpdatedDate"]) for h in online)
+        minutes = max(0, int((back - since).total_seconds() // 60))
+        notify("Power back", f"Power came back around {local(back)}, after {minutes // 60} hr {minutes % 60} min. "
+                             "Clocks are being reset now.")
+        power["out_since"] = None
+        return True
+    return False
+
+
+def sync_device(token, device_id, health, now):
     name = api(token, f"/devices/{device_id}").get("label") or device_id
-    if api(token, f"/devices/{device_id}/health").get("state") != "ONLINE":
+    if health.get("state") != "ONLINE":
         print(f"{name}: offline, skipping")
         return
     status = api(token, f"/devices/{device_id}/components/main/status")
@@ -110,11 +159,16 @@ def main():
     if state.get("expires_at", 0) - time.time() < REFRESH_MARGIN:
         state = refresh(state)
 
+    token = state["access_token"]
+    health = {d: api(token, f"/devices/{d}/health") for d in DEVICE_IDS}
+    if check_power(state, health):
+        save_state(state)
+
     now = datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%dT%H:%M:%S")
     failed = False
     for device_id in DEVICE_IDS:
         try:
-            sync_device(state["access_token"], device_id, now)
+            sync_device(token, device_id, health[device_id], now)
         except urllib.error.HTTPError as e:
             print(f"{device_id}: HTTP {e.code} {e.read()[:200]!r}")
             failed = True
